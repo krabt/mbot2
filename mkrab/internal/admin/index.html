@@ -1,0 +1,615 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>mkrab · MQTT 管理台</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #080c14;
+            --panel: #111925;
+            --line: #263248;
+            --text: #e9eef7;
+            --muted: #8c99ad;
+            --cyan: #38d6c1;
+            --blue: #708dff;
+            --red: #ff7187
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        body {
+            margin: 0;
+            background: radial-gradient(circle at 80% 0, #182644 0, transparent 30rem), var(--bg);
+            color: var(--text);
+            font: 14px/1.45 Inter, system-ui, "PingFang SC", sans-serif
+        }
+
+        button,
+        input,
+        select,
+        textarea {
+            font: inherit
+        }
+
+        .shell {
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: 210px 1fr
+        }
+
+        .side {
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            padding: 22px 14px;
+            border-right: 1px solid var(--line);
+            background: #0b111cdd;
+            backdrop-filter: blur(18px)
+        }
+
+        .brand {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            padding: 0 10px 28px
+        }
+
+        .logo {
+            width: 39px;
+            height: 39px;
+            border-radius: 12px;
+            display: grid;
+            place-items: center;
+            color: #061116;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--cyan), var(--blue));
+            box-shadow: 0 8px 22px #38d6c137
+        }
+
+        .brand strong {
+            display: block
+        }
+
+        .brand small,
+        .muted {
+            color: var(--muted);
+            font-size: .76rem
+        }
+
+        .label {
+            margin: 8px 10px;
+            color: #64728a;
+            font-size: .7rem;
+            font-weight: 800;
+            letter-spacing: .14em
+        }
+
+        .nav button {
+            width: 100%;
+            border: 0;
+            background: transparent;
+            color: #aab5c7;
+            text-align: left;
+            padding: 10px 12px;
+            border-radius: 10px;
+            margin: 2px 0
+        }
+
+        .nav button:hover {
+            background: #ffffff08;
+            color: #fff
+        }
+
+        .nav button.active {
+            color: var(--cyan);
+            background: linear-gradient(90deg, #38d6c018, #708dff10);
+            box-shadow: inset 3px 0 var(--cyan)
+        }
+
+        .nav i {
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: currentColor;
+            margin-right: 11px
+        }
+
+        .online {
+            position: absolute;
+            bottom: 24px;
+            left: 28px;
+            color: var(--muted);
+            font-size: .78rem
+        }
+
+        .online i {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #3de68b;
+            box-shadow: 0 0 12px #3de68b;
+            margin-right: 8px
+        }
+
+        .main {
+            padding: 32px 38px 55px;
+            min-width: 0
+        }
+
+        .top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 25px
+        }
+
+        .eyebrow {
+            color: var(--cyan);
+            font-size: .7rem;
+            font-weight: 800;
+            letter-spacing: .15em
+        }
+
+        .top h1 {
+            font-size: 1.8rem;
+            letter-spacing: -.03em;
+            margin: 3px 0
+        }
+
+        .clock {
+            color: var(--muted);
+            font-variant-numeric: tabular-nums
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            margin-bottom: 18px
+        }
+
+        .stat,
+        .card {
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: linear-gradient(145deg, #151e2cdd, #0e151fed);
+            box-shadow: 0 18px 50px #0005
+        }
+
+        .stat {
+            padding: 17px 20px
+        }
+
+        .stat span {
+            color: var(--muted);
+            font-size: .78rem
+        }
+
+        .stat strong {
+            display: block;
+            font-size: 1.65rem;
+            margin-top: 3px
+        }
+
+        .accent {
+            color: var(--cyan)
+        }
+
+        .tools {
+            display: grid;
+            grid-template-columns: minmax(190px, var(--left-pane, 240px)) 10px minmax(360px, 1fr);
+            gap: 0;
+            height: calc(100vh - 92px);
+            min-height: 520px;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            overflow: hidden;
+            background: #0c121c
+        }
+
+        .subscription-pane { padding: 16px; border-right: 1px solid var(--line); background: #0b111a }
+        .subscription-pane .primary { width: 100%; margin-bottom: 14px }
+        .sub-item { position: relative; padding: 11px 34px 11px 12px; border: 1px solid #31405a; border-radius: 9px; background: #151d2b; color: var(--cyan); word-break: break-all; cursor: pointer }
+        .sub-item.disabled { opacity: .5; filter: saturate(.35) }
+        .sub-status { display: block; margin-top: 4px; color: var(--muted); font-size: .68rem }
+        .sub-close { position: absolute; top: 6px; right: 7px; width: 22px; height: 22px; border: 0; border-radius: 6px; color: var(--muted); background: transparent; cursor: pointer }
+        .sub-close:hover { color: var(--text); background: #ffffff10 }
+        .sub-menu { position: absolute; z-index: 5; top: calc(100% + 6px); left: 0; right: 0; padding: 5px; border: 1px solid var(--line); border-radius: 9px; background: #182231; box-shadow: 0 12px 30px #0008 }
+        .sub-menu button { display: block; width: 100%; padding: 7px 9px; border: 0; border-radius: 6px; text-align: left; color: var(--text); background: transparent; cursor: pointer }
+        .sub-menu button:hover { background: #ffffff0b }
+        .sub-menu button.danger { color: var(--red) }
+        .message-pane { min-width: 0; min-height: 0; display: grid; grid-template-rows: 44px minmax(0,1fr) auto; background: #090e16 }
+        .message-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid var(--line) }
+        .message-toolbar .tabs { display: flex; gap: 16px; color: var(--muted); font-size: .82rem }
+        .message-toolbar .tabs button { border: 0; padding: 4px 2px; color: inherit; background: transparent; cursor: pointer }
+        .message-toolbar .tabs button:hover { color: var(--text) }
+        .message-toolbar .tabs button.active { color: var(--cyan); box-shadow: inset 0 -2px var(--cyan) }
+        .message-feed { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 16px }
+        .chat-row { display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 13px }
+        .chat-row.sent { align-items: flex-end }
+        .message-bubble { max-width: 76%; padding: 9px 12px; border: 1px solid #28364d; border-radius: 4px 12px 12px 12px; background: #151e2c; box-shadow: 0 5px 16px #0003 }
+        .chat-row.sent .message-bubble { border-color: #256c68; border-radius: 12px 4px 12px 12px; background: linear-gradient(145deg,#17413e,#123330) }
+        .message-meta { display: flex; gap: 12px; color: var(--muted); font-size: .7rem; margin-bottom: 5px }
+        .chat-row.sent .message-meta { color: #82bdb6 }
+        .message-body { margin: 0; color: #dce4ef; white-space: pre-wrap; word-break: break-word; font: 12px/1.55 ui-monospace, monospace }
+        .message-time { color: #5f6c80; font-size: .68rem; margin-top: 4px; padding: 0 4px }
+        .composer { border-top: 1px solid var(--line); background: #0e151f; padding: 11px 14px }
+        .composer-options { display: flex; gap: 8px; align-items: center; margin-bottom: 8px }
+        .composer-options .control { width: auto; padding: 6px 9px }
+        .composer-topic { margin-bottom: 8px }
+        .composer-send { display: grid; grid-template-columns: 1fr auto; gap: 9px; align-items: end }
+        .composer-send .payload { height: 86px }
+        .send-round { width: 40px; height: 40px; border: 0; border-radius: 50%; background: var(--cyan); color: #061116; font-size: 1rem; font-weight: 900; cursor: pointer }
+
+        .splitter {
+            position: relative;
+            cursor: col-resize;
+            touch-action: none;
+            border-radius: 8px
+        }
+
+        .splitter::after {
+            content: "";
+            position: absolute;
+            inset: 12px 3px;
+            border-radius: 4px;
+            background: var(--line);
+            transition: background .15s, box-shadow .15s
+        }
+
+        .splitter:hover::after,
+        .splitter.dragging::after {
+            background: var(--cyan);
+            box-shadow: 0 0 14px #38d6c155
+        }
+
+        .card {
+            padding: 20px
+        }
+
+        .head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px
+        }
+
+        .head h2,
+        .datahead h2 {
+            font-size: .9rem;
+            margin: 0
+        }
+
+        .badge {
+            padding: 3px 9px;
+            border-radius: 99px;
+            background: #38d6c014;
+            color: var(--cyan);
+            font-size: .7rem
+        }
+
+        .row {
+            display: flex;
+            gap: 9px;
+            margin-bottom: 10px
+        }
+
+        .control {
+            width: 100%;
+            min-width: 0;
+            border: 1px solid var(--line);
+            border-radius: 9px;
+            background: #090f18;
+            color: var(--text);
+            padding: 8px 10px;
+            outline: none
+        }
+
+        .control:focus {
+            border-color: var(--cyan);
+            box-shadow: 0 0 0 3px #38d6c014
+        }
+
+        .payload {
+            height: 88px;
+            resize: vertical
+        }
+
+        .primary,
+        .secondary {
+            border-radius: 9px;
+            padding: 10px 15px;
+            white-space: nowrap;
+            cursor: pointer
+        }
+
+        .primary {
+            border: 0;
+            background: linear-gradient(135deg, var(--cyan), #56a9f8);
+            color: #061116;
+            font-weight: 800
+        }
+
+        .secondary {
+            border: 1px solid var(--line);
+            background: #172131;
+            color: var(--text)
+        }
+
+        .opts {
+            color: var(--muted);
+            font-size: .83rem
+        }
+
+        .stream {
+            height: 184px;
+            overflow: auto;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #080d14;
+            padding: 9px;
+            font: 12px/1.5 ui-monospace, monospace
+        }
+
+        .event {
+            padding: 7px;
+            border-bottom: 1px solid #1c2737
+        }
+
+        .topic {
+            color: var(--cyan)
+        }
+
+        .empty {
+            display: grid;
+            place-items: center;
+            color: #637087;
+            padding: 48px
+        }
+
+        .data {
+            padding: 0;
+            overflow: hidden
+        }
+
+        .datahead {
+            padding: 17px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--line)
+        }
+
+        .tablewrap {
+            max-height: 480px;
+            overflow: auto
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .84rem
+        }
+
+        th {
+            position: sticky;
+            top: 0;
+            background: #111a27;
+            color: #8794a8;
+            text-align: left;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            font-size: .68rem;
+            padding: 11px 14px;
+            border-bottom: 1px solid var(--line)
+        }
+
+        td {
+            padding: 11px 14px;
+            border-bottom: 1px solid #1c2738;
+            max-width: 330px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis
+        }
+
+        tr:hover td {
+            background: #ffffff04
+        }
+
+        .toast {
+            position: fixed;
+            right: 25px;
+            bottom: 25px;
+            padding: 11px 16px;
+            border: 1px solid #34445e;
+            border-radius: 10px;
+            background: #182333;
+            box-shadow: 0 15px 40px #0008
+        }
+
+        .error {
+            color: var(--red)
+        }
+
+        @media(max-width:900px) {
+            .shell {
+                grid-template-columns: 1fr
+            }
+
+            .side {
+                position: static;
+                height: auto;
+                padding: 14px;
+                border-right: 0;
+                border-bottom: 1px solid var(--line)
+            }
+
+            .brand {
+                padding-bottom: 10px
+            }
+
+            .nav {
+                display: flex;
+                overflow: auto
+            }
+
+            .nav button {
+                width: auto;
+                white-space: nowrap
+            }
+
+            .label,
+            .online {
+                display: none
+            }
+
+            .main {
+                padding: 22px 16px
+            }
+
+            .tools {
+                grid-template-columns: 1fr;
+                height: auto;
+                min-height: 0
+            }
+
+            .subscription-pane { border-right: 0; border-bottom: 1px solid var(--line) }
+            .message-pane { height: 560px; min-height: 0 }
+
+            .splitter {
+                display: none
+            }
+
+            .clock {
+                display: none
+            }
+        }
+
+        @media(max-width:560px) {
+            .stats {
+                grid-template-columns: 1fr
+            }
+
+            .row {
+                flex-wrap: wrap
+            }
+
+            .top h1 {
+                font-size: 1.45rem
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app" class="shell">
+        <aside class="side">
+            <div class="brand">
+                <div class="logo">M</div>
+                <div><strong>mkrab</strong><small>MQTT CONTROL</small></div>
+            </div>
+            <div class="label">数据管理</div>
+            <nav class="nav"><button v-for="x in views" :class="{active:view===x.key}"
+                    @click="load(x.key)"><i></i>{{x.label}}</button></nav>
+            <div class="online"><i></i>管理服务运行中</div>
+        </aside>
+        <main class="main">
+            <header class="top">
+                <div>
+                    <div class="eyebrow">BROKER WORKSPACE</div>
+                </div>
+                <div class="clock">{{now}}</div>
+            </header>
+            <section v-if="view !== 'mqtt'" class="stats">
+                <div class="stat"><span>当前数据集</span><strong>{{label}}</strong></div>
+                <div class="stat"><span>记录数量</span><strong class="accent">{{rows.length}}</strong></div>
+                <div class="stat"><span>实时消息</span><strong>{{events.length}}</strong></div>
+            </section>
+            <section v-if="view === 'mqtt'" class="tools">
+                <aside class="subscription-pane">
+                    <button class="primary" @click="subscribe">＋ 添加订阅</button>
+                    <input class="control" v-model.trim="filter" placeholder="例如 devices/#" style="margin-bottom:10px">
+                    <div class="sub-item" :class="{disabled:subscriptionDisabled}" v-if="subscriptionTopic" @click="subscriptionMenu=!subscriptionMenu">
+                        {{subscriptionTopic}}<span class="sub-status">{{wsState}} · QoS 0</span><button class="sub-close" title="取消订阅" @click.stop="stopSubscription('unsubscribe')">×</button>
+                        <div class="sub-menu" v-if="subscriptionMenu" @click.stop><button @click="stopSubscription('unsubscribe')">取消订阅</button><button @click="stopSubscription('disable')">禁用</button><button class="danger" @click="stopSubscription('delete')">删除</button></div>
+                    </div>
+                    <div class="empty" v-else style="padding:28px 0">暂无订阅</div>
+                </aside>
+                <div class="splitter" :class="{dragging:resizing}" title="拖拽调整分栏宽度"
+                    @pointerdown="startResize"></div>
+                <section class="message-pane">
+                    <div class="message-toolbar">
+                        <select class="control" style="width:auto"><option>JSON</option><option>Plaintext</option></select>
+                        <div class="tabs"><button :class="{active:eventFilter==='all'}" @click="eventFilter='all'">全部</button><button :class="{active:eventFilter==='received'}" @click="eventFilter='received'">已接收</button><button :class="{active:eventFilter==='sent'}" @click="eventFilter='sent'">已发送</button></div>
+                    </div>
+                    <div class="message-feed" ref="messageFeed">
+                        <div v-if="!filteredEvents.length" class="empty">当前筛选下暂无消息</div>
+                        <div class="chat-row" :class="{sent:e.sent}" v-for="(e,i) in filteredEvents" :key="i">
+                            <div class="message-bubble"><div class="message-meta"><span>{{e.sent ? '发送至' : '接收自'}} {{e.topic}}</span><span>QoS {{e.qos || 0}}</span></div><pre class="message-body">{{e.payload}}</pre></div>
+                            <div class="message-time">{{e.at || '刚刚'}}</div>
+                        </div>
+                    </div>
+                    <div class="composer">
+                        <div class="composer-options"><select class="control"><option>JSON</option><option>Plaintext</option></select><select class="control" v-model.number="qos"><option :value="0">QoS 0</option><option :value="1">QoS 1</option><option :value="2">QoS 2</option></select><label class="opts"><input type="checkbox" v-model="retain"> Retain</label></div>
+                        <input class="control composer-topic" v-model.trim="topic" placeholder="发布 Topic，例如 devices/1/set">
+                        <div class="composer-send"><textarea class="control payload" v-model="payload" placeholder='输入消息内容，例如 {"power":true}'></textarea><button class="send-round" @click="publish" :disabled="publishing" title="发送">➤</button></div>
+                    </div>
+                </section>
+            </section>
+            <section v-else class="card data">
+                <div class="datahead">
+                    <h2>{{label}}</h2><button class="secondary" @click="load(view)">刷新</button>
+                </div>
+                <div class="tablewrap">
+                    <div v-if="loading" class="empty">加载中…</div>
+                    <div v-else-if="error" class="empty error">{{error}}</div>
+                    <div v-else-if="!rows.length" class="empty">暂无数据</div>
+                    <table v-else>
+                        <thead>
+                            <tr>
+                                <th v-for="(_,k) in rows[0]">{{keyName(k)}}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="r in rows">
+                                <td v-for="v in r" :title="value(v)">{{value(v)}}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+        <div class="toast" v-if="notice">{{notice}}</div>
+    </div>
+    <script>
+        const { createApp } = Vue;
+        createApp({
+            data() { return { views: [{ key: 'mqtt', label: '消息收发' }, { key: 'topics', label: 'Topic 列表' }, { key: 'messages', label: '接收消息' }, { key: 'connections', label: '客户端连接' }, { key: 'users', label: '用户' }, { key: 'roles', label: '角色' }, { key: 'acl-rules', label: 'ACL 规则' }], view: 'mqtt', rows: [], loading: false, error: '', topic: '', payload: '', qos: 0, retain: false, filter: '#', subscriptionTopic: '', subscriptionDisabled: false, subscriptionMenu: false, events: [], eventFilter: 'all', ws: null, wsState: '未连接', publishing: false, notice: '', now: '', resizing: false } },
+            computed: { label() { return this.views.find(x => x.key === this.view)?.label || this.view }, filteredEvents() { if (this.eventFilter === 'sent') return this.events.filter(e => e.sent); if (this.eventFilter === 'received') return this.events.filter(e => !e.sent); return this.events } },
+            mounted() { this.tick(); setInterval(this.tick, 1000) },
+            methods: {
+                tick() { this.now = new Date().toLocaleString('zh-CN', { hour12: false }) },
+                keyName(k) { return k.replace(/([a-z])([A-Z])/g, '$1 $2').replaceAll('_', ' ') },
+                value(v) { if (v === null || v === undefined || v === '') return '—'; if (typeof v === 'boolean') return v ? '是' : '否'; return typeof v === 'object' ? JSON.stringify(v) : String(v) },
+                flash(t) { this.notice = t; setTimeout(() => this.notice = '', 2200) },
+                scrollMessages() { this.$nextTick(() => { const feed = this.$refs.messageFeed; if (feed) feed.scrollTop = feed.scrollHeight }) },
+                stopSubscription(action) { if (this.ws) { this.ws.close(); this.ws = null } this.subscriptionMenu = false; if (action === 'delete') { this.subscriptionTopic = ''; this.filter = ''; this.subscriptionDisabled = false; this.wsState = '已删除' } else if (action === 'disable') { this.subscriptionDisabled = true; this.wsState = '已禁用' } else { this.subscriptionDisabled = false; this.wsState = '已取消' } },
+                startResize(event) { const tools = event.currentTarget.parentElement, rect = tools.getBoundingClientRect(); this.resizing = true; event.currentTarget.setPointerCapture(event.pointerId); const move = e => { const width = Math.max(280, Math.min(rect.width - 298, e.clientX - rect.left)); tools.style.setProperty('--left-pane', width + 'px') }; const stop = () => { this.resizing = false; window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', stop) }; window.addEventListener('pointermove', move); window.addEventListener('pointerup', stop) },
+                async load(v) { this.view = v; if (v === 'mqtt') { this.rows = []; this.error = ''; return } this.loading = true; this.error = ''; try { const r = await fetch('/api/' + v); if (!r.ok) throw Error('请求失败 ' + r.status); this.rows = await r.json() } catch (e) { this.error = e.message } finally { this.loading = false } },
+                async publish() { if (!this.topic) return this.flash('请输入 Topic'); this.publishing = true; try { const r = await fetch('/api/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topic: this.topic, payload: this.payload, qos: this.qos, retain: this.retain }) }); if (!r.ok) throw Error(await r.text()); this.events.push({ topic: this.topic, payload: this.payload, qos: this.qos, sent: true, at: new Date().toLocaleString('zh-CN', { hour12: false }) }); if (this.events.length > 100) this.events.shift(); this.scrollMessages(); this.flash('消息已发送') } catch (e) { this.flash('发送失败：' + e.message) } finally { this.publishing = false } },
+                subscribe() { if (!this.filter) return this.flash('请输入订阅 Topic'); if (this.ws) this.ws.close(); this.events = []; this.subscriptionTopic = this.filter; this.subscriptionDisabled = false; this.subscriptionMenu = false; this.wsState = '连接中'; const socket = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws?topic=${encodeURIComponent(this.filter)}`); this.ws = socket; socket.onopen = () => this.wsState = '已连接'; socket.onclose = () => { if (this.ws === socket) this.wsState = '已断开' }; socket.onerror = () => this.wsState = '连接错误'; socket.onmessage = e => { try { const message = JSON.parse(e.data); message.at = new Date().toLocaleString('zh-CN', { hour12: false }); this.events.push(message); if (this.events.length > 100) this.events.shift() } catch { this.events.push({ topic: '消息', payload: e.data, at: new Date().toLocaleString('zh-CN', { hour12: false }) }) } this.scrollMessages() } }
+            }
+        }).mount('#app')
+    </script>
+</body>
+
+</html>

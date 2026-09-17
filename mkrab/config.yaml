@@ -1,0 +1,27 @@
+database: "mqtt.db"
+
+listeners:
+  tcp:
+    enabled: true
+    address: ":1883"
+  tls:
+    enabled: false
+    address: ":8883"
+    cert_file: "certs/server.crt"
+    key_file: "certs/server.key"
+  websocket:
+    enabled: false
+    address: ":8083"
+  wss:
+    enabled: false
+    address: ":8084"
+    cert_file: "certs/server.crt"
+    key_file: "certs/server.key"
+
+message_store:
+  enabled: true
+  topic: "#"
+
+web:
+  enabled: true
+  address: "127.0.0.1:8080"
